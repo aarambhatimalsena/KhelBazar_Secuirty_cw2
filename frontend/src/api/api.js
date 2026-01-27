@@ -34,15 +34,32 @@ instance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 🌐 RESPONSE INTERCEPTOR – handle auth expiry
+// ✅ Helper: public routes should not force redirect on 401
+const isPublicAuthRoute = () => {
+  const path = window.location.pathname || "";
+
+  return (
+    path.startsWith("/reset-password/") ||
+    path === "/forgot-password" ||
+    path === "/login" ||
+    path === "/register" ||
+    path === "/verify-email"
+  );
+};
+
+// 🌐 RESPONSE INTERCEPTOR – handle auth expiry (secure, but don’t break public flows)
 instance.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
 
-    // If cookie session expired/invalid → backend will return 401
+    // If cookie session expired/invalid → backend may return 401
+    // ✅ But do NOT redirect on public auth pages (reset/forgot/login/register/verify)
     if (status === 401) {
-      window.dispatchEvent(new Event("force-logout"));
+      if (!isPublicAuthRoute()) {
+        window.dispatchEvent(new Event("force-logout"));
+      }
+      // else: ignore redirect so reset/forgot pages can load
     }
 
     return Promise.reject(error);
